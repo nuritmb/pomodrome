@@ -41,6 +41,7 @@ body {
 }
 
 .app {
+  position: relative;
   width: min(560px, 100%);
   background: var(--panel);
   border: 1px solid var(--line);
@@ -150,6 +151,64 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 }
 #add-name { flex: 1; }
 #add-mins { width: 76px; text-align: center; }
+
+/* people + worked ------------------------------------------------------ */
+.people {
+  margin: -8px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+  min-height: 1.4em;
+}
+.people .me { color: var(--ink); font-weight: 600; }
+.people .sep { opacity: .5; padding: 0 5px; }
+
+.worked {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+}
+.worked b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* name gate ------------------------------------------------------------ */
+/* Sits over the card rather than blocking the page: the timer stays legible
+   underneath, so you can see what you are joining before you name yourself. */
+.gate {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  backdrop-filter: blur(3px);
+}
+.gate[hidden] { display: none; }
+.gate-card {
+  display: grid;
+  gap: 10px;
+  width: min(320px, 100%);
+  text-align: center;
+}
+.gate-label { font-size: 15px; font-weight: 600; }
+.gate-card input {
+  font: inherit;
+  text-align: center;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 11px 14px;
+}
+.gate-card input::placeholder { color: var(--muted); }
+.gate-card button {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: transparent;
+  font-weight: 600;
+}
+.gate-note { margin: 0; font-size: 12px; color: var(--muted); }
 
 /* footer ------------------------------------------------------------- */
 .foot { font-size: 12px; color: var(--muted); text-align: center; }

@@ -75,6 +75,7 @@ stray write cannot fill your database.
             "remainingMs": { ".validate": "newData.isNumber()" },
             "paused":      { ".validate": "newData.isBoolean()" },
             "running":     { ".validate": "newData.isBoolean()" },
+            "work":        { ".validate": "newData.isBoolean()" },
             "updatedBy":   { ".validate": "newData.isString() && newData.val().length <= 32" },
             "updatedAt":   { ".validate": "newData.isNumber()" },
             "$other":      { ".validate": false }
@@ -85,6 +86,21 @@ stray write cannot fill your database.
               "seconds": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 36000" },
               "order":   { ".validate": "newData.isNumber()" },
               "builtin": { ".validate": "newData.isBoolean()" },
+              "work":    { ".validate": "newData.isBoolean()" },
+              "$other":  { ".validate": false }
+            }
+          },
+          "presence": {
+            "$client": {
+              "name":     { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20" },
+              "joinedAt": { ".validate": "newData.isNumber()" },
+              "$other":   { ".validate": false }
+            }
+          },
+          "sessions": {
+            "$endsAt": {
+              "seconds": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 36000" },
+              "label":   { ".validate": "newData.isString() && newData.val().length <= 24" },
               "$other":  { ".validate": false }
             }
           },

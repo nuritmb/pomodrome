@@ -14,13 +14,19 @@ function getRoomId() {
 
 const roomId = getRoomId();
 
-// Stable per-browser id, only ever used to tell "you" from "your friend".
+// Identity is per-tab, not per-browser: it keys the presence list, and presence
+// is meant to vanish when the page closes. sessionStorage survives a reload and
+// dies with the tab, which is exactly the lifetime we want for both this and
+// the display name.
 const me = (() => {
-  const k = "pomodoro-sync:client";
-  let v = localStorage.getItem(k);
-  if (!v) { v = Math.random().toString(36).slice(2, 10); localStorage.setItem(k, v); }
+  const k = "pomodrome:client";
+  let v = sessionStorage.getItem(k);
+  if (!v) { v = Math.random().toString(36).slice(2, 10); sessionStorage.setItem(k, v); }
   return v;
 })();
+
+const NAME_KEY = "pomodrome:name";
+let myName = sessionStorage.getItem(NAME_KEY) || "";
 
 /* ------------------------------------------------------------------- dom */
 const el = {
@@ -38,6 +44,11 @@ const el = {
   addName: document.getElementById("add-name"),
   addMins: document.getElementById("add-mins"),
   modeNote: document.getElementById("mode-note"),
+  people: document.getElementById("people"),
+  worked: document.getElementById("worked"),
+  gate: document.getElementById("gate"),
+  gateForm: document.getElementById("gate-form"),
+  gateName: document.getElementById("gate-name"),
 };
 
 /* ------------------------------------------------------------------- wash */
@@ -147,11 +158,100 @@ function syncChime(timer, now, done) {
   }
 }
 
+/* --------------------------------------------------------- people + ledger */
+// Presence lives in the room and is removed by the server on disconnect, so the
+// list is whoever currently has the page open — no stale ghosts.
+
+function who(clientId) {
+  if (!clientId) return "someone";
+  if (clientId === me) return "you";
+  const entry = (state.presence || {})[clientId];
+  return entry && entry.name ? entry.name : "your friend";
+}
+
+function renderPeople() {
+  const here = Object.entries(state.presence || {})
+    .filter(([, v]) => v && v.name)
+    .sort((a, b) => (a[1].joinedAt ?? 0) - (b[1].joinedAt ?? 0));
+
+  if (!here.length) { el.people.replaceChildren(); return; }
+
+  const nodes = [];
+  here.forEach(([id, v], i) => {
+    if (i) {
+      const sep = document.createElement("span");
+      sep.className = "sep";
+      sep.textContent = "·";
+      nodes.push(sep);
+    }
+    const span = document.createElement("span");
+    if (id === me) span.className = "me";
+    // Names come from other people: textContent, never innerHTML.
+    span.textContent = v.name;
+    nodes.push(span);
+  });
+  el.people.replaceChildren(...nodes);
+}
+
+// Only completed work runs count. A run you abandon halfway does not, which
+// keeps the number honest and — more usefully — makes it deterministic: both
+// browsers derive the same key and the same value from shared state, so if you
+// both record the same run you write identical bytes instead of double-counting.
+let loggedFor = null;
+
+function recordSession(timer, done) {
+  if (!done || loggedFor === timer.endsAt) return;
+  loggedFor = timer.endsAt;
+  if (timer.work === false) return;
+  store.logSession(timer.endsAt, {
+    seconds: Math.round(timer.durationMs / 1000),
+    label: timer.label || "Focus",
+  });
+  pruneSessions();
+}
+
+// The whole room downloads on every page load, so don't let the ledger grow
+// without bound — nothing older than yesterday is ever displayed.
+function pruneSessions() {
+  const cutoff = store.now() - 2 * 86400000;
+  for (const key of Object.keys(state.sessions || {})) {
+    if (Number(key) < cutoff) store.dropSession(key);
+  }
+}
+
+function workedTodayMs() {
+  const midnight = new Date();
+  midnight.setHours(0, 0, 0, 0);
+  const from = midnight.getTime();
+  return Object.entries(state.sessions || {})
+    .filter(([key]) => Number(key) >= from)
+    .reduce((sum, [, v]) => sum + (v && v.seconds ? v.seconds : 0) * 1000, 0);
+}
+
+function humanDuration(ms) {
+  const mins = Math.round(ms / 60000);
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (!h) return `${m}m`;
+  return m ? `${h}h ${m}m` : `${h}h`;
+}
+
+function renderWorked() {
+  const ms = workedTodayMs();
+  if (!ms) {
+    el.worked.textContent = "No focus time logged today yet";
+    return;
+  }
+  const amount = document.createElement("b");
+  amount.textContent = humanDuration(ms);
+  el.worked.replaceChildren(amount, document.createTextNode(" of focus today"));
+}
+
 /* ------------------------------------------------------------------ state */
 const store = await createStore(roomId);
 let state = store.getState();
 
-store.onState((next) => { state = next; renderPresets(); render(); });
+store.onState((next) => { state = next; renderPresets(); renderPeople(); renderWorked(); render(); });
 store.onStatus(setStatus);
 
 if (store.mode === "local") {
@@ -231,7 +331,7 @@ function render() {
   if (done) {
     el.note.textContent = "Time's up.";
   } else if (t.running && t.updatedBy) {
-    el.note.textContent = `${t.paused ? "Paused" : "Started"} by ${t.updatedBy === me ? "you" : "your friend"}`;
+    el.note.textContent = `${t.paused ? "Paused" : "Started"} by ${who(t.updatedBy)}`;
   } else {
     el.note.innerHTML = "&nbsp;";
   }
@@ -251,6 +351,7 @@ function render() {
   el.track.setAttribute("aria-valuenow", String(left));
 
   syncChime(t, now, done);
+  recordSession(t, done);
 }
 
 function renderPresets() {
@@ -282,13 +383,34 @@ function renderPresets() {
   }));
 }
 
+/* ------------------------------------------------------------------- name */
+function joinAs(name) {
+  myName = name;
+  sessionStorage.setItem(NAME_KEY, name);
+  el.gate.hidden = true;
+  store.announce(me, name);
+}
+
+if (myName) {
+  store.announce(me, myName);
+} else {
+  el.gate.hidden = false;
+  el.gateName.focus();
+}
+
+el.gateForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const name = el.gateName.value.trim().slice(0, 20);
+  if (name) joinAs(name);
+});
+
 /* ---------------------------------------------------------------- actions */
 // Selecting is shared too, so you are never looking at different timers.
 function selectPreset(p) {
   const ms = p.seconds * 1000;
   store.setTimer({
     label: p.name, durationMs: ms, endsAt: null, remainingMs: ms,
-    paused: false, running: false, updatedBy: me,
+    paused: false, running: false, updatedBy: me, work: p.work !== false,
   });
 }
 

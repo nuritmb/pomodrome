@@ -16,6 +16,8 @@
     <button class="ghost" id="invite" type="button">Copy invite link</button>
   </header>
 
+  <p class="people" id="people"></p>
+
   <section class="stage">
     <p class="label" id="label">Pick a timer</p>
     <p class="clock" id="clock">25:00</p>
@@ -41,9 +43,21 @@
     </form>
   </section>
 
+  <p class="worked" id="worked"></p>
+
   <footer class="foot">
     <span id="mode-note"></span>
   </footer>
+
+  <div class="gate" id="gate" hidden>
+    <form class="gate-card" id="gate-form">
+      <label class="gate-label" for="gate-name">What should we call you?</label>
+      <input id="gate-name" type="text" maxlength="20" autocomplete="off"
+             placeholder="Your name" required>
+      <button type="submit">Join</button>
+      <p class="gate-note">Just for this tab — close the page and you disappear.</p>
+    </form>
+  </div>
 
 </main>
 <script type="module" src="app.js"></script>

@@ -3,20 +3,22 @@
 //
 //   store.mode           -> "firebase" | "local"
 //   store.now()          -> epoch ms, corrected for this machine's clock skew
-//   store.onState(fn)    -> fn({ timer, presets }) on every change
+//   store.onState(fn)    -> fn({ timer, presets, presence, sessions }) on change
 //   store.onStatus(fn)   -> fn({ connected, error })
 //   store.setTimer(t)
 //   store.setPresets(p)
+//   store.announce(name) -> join the room's presence list under this name
+//   store.logSession(k,v)-> record one completed work run
 
 import { firebaseConfig, DATA_VERSION } from "./config.js";
 
 const SDK = "https://www.gstatic.com/firebasejs/12.18.0";
 
 export const DEFAULT_PRESETS = {
-  focus:  { name: "Focus",       seconds: 25 * 60, order: 0, builtin: true },
-  deep:   { name: "Deep Work",   seconds: 50 * 60, order: 1, builtin: true },
-  short:  { name: "Short break", seconds:  5 * 60, order: 2, builtin: true },
-  long:   { name: "Long break",  seconds: 15 * 60, order: 3, builtin: true },
+  focus:  { name: "Focus",       seconds: 25 * 60, order: 0, builtin: true, work: true },
+  deep:   { name: "Deep Work",   seconds: 50 * 60, order: 1, builtin: true, work: true },
+  short:  { name: "Short break", seconds:  5 * 60, order: 2, builtin: true, work: false },
+  long:   { name: "Long break",  seconds: 15 * 60, order: 3, builtin: true, work: false },
 };
 
 const EMPTY_TIMER = {
@@ -28,10 +30,16 @@ const EMPTY_TIMER = {
   running: false,
   updatedBy: null,
   updatedAt: 0,
+  work: true,        // breaks don't count toward the room's worked-today total
 };
 
 export function blankState() {
-  return { timer: { ...EMPTY_TIMER }, presets: { ...DEFAULT_PRESETS } };
+  return {
+    timer: { ...EMPTY_TIMER },
+    presets: { ...DEFAULT_PRESETS },
+    presence: {},
+    sessions: {},
+  };
 }
 
 // Presets arrive from the network as a plain object; normalise into a sorted
@@ -90,6 +98,8 @@ async function firebaseStore(roomId) {
       state = {
         timer: { ...EMPTY_TIMER, ...(raw.timer || {}) },
         presets: raw.presets || { ...DEFAULT_PRESETS },
+        presence: raw.presence || {},
+        sessions: raw.sessions || {},
       };
       // First client into a fresh room lays down the defaults. If both of you
       // land at once you both write the same bytes, so the race is harmless.
@@ -118,6 +128,24 @@ async function firebaseStore(roomId) {
     setPresets(presets) {
       return db.set(db.child(roomRef, "presets"), presets).catch(console.error);
     },
+
+    // Presence is deliberately server-managed: onDisconnect fires when the
+    // socket drops, so closing the tab or losing wifi removes you without the
+    // page having to do anything on the way out. beforeunload is unreliable;
+    // this is not.
+    announce(clientId, name) {
+      const mine = db.child(roomRef, `presence/${clientId}`);
+      db.onDisconnect(mine).remove();
+      return db.set(mine, { name, joinedAt: db.serverTimestamp() }).catch(console.error);
+    },
+
+    logSession(key, entry) {
+      return db.set(db.child(roomRef, `sessions/${key}`), entry).catch(console.error);
+    },
+
+    dropSession(key) {
+      return db.set(db.child(roomRef, `sessions/${key}`), null).catch(console.error);
+    },
   };
 }
 
@@ -135,6 +163,8 @@ function localStore(roomId) {
       return {
         timer: { ...EMPTY_TIMER, ...(raw.timer || {}) },
         presets: raw.presets || { ...DEFAULT_PRESETS },
+        presence: raw.presence || {},
+        sessions: raw.sessions || {},
       };
     } catch {
       return blankState();
@@ -164,5 +194,19 @@ function localStore(roomId) {
     onStatus(fn) { statusHandlers.add(fn); fn({ connected: false }); },
     setTimer(timer) { write({ ...state, timer: { ...timer, updatedAt: Date.now() } }); },
     setPresets(presets) { write({ ...state, presets }); },
+
+    // Solo mode has no other people in it, but carrying the same shape keeps
+    // the UI code from having to special-case the backend.
+    announce(clientId, name) {
+      write({ ...state, presence: { [clientId]: { name, joinedAt: Date.now() } } });
+    },
+    logSession(key, entry) {
+      write({ ...state, sessions: { ...state.sessions, [key]: entry } });
+    },
+    dropSession(key) {
+      const next = { ...state.sessions };
+      delete next[key];
+      write({ ...state, sessions: next });
+    },
   };
 }
