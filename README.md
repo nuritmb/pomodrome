@@ -1,4 +1,4 @@
-# pomodoro-sync
+# pomodrome
 
 A two-person Pomodoro timer that runs entirely on GitHub Pages. Whoever holds
 the link can start, pause, reset, and edit the timer list — everyone watching

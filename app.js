@@ -128,7 +128,7 @@ function render() {
     el.note.innerHTML = "&nbsp;";
   }
 
-  document.title = armed && t.running && !t.paused && !done ? `${fmt(rem)} · ${t.label}` : "Pomodoro";
+  document.title = armed && t.running && !t.paused && !done ? `${fmt(rem)} · ${t.label}` : "Pomodrome";
 
   // Chime once per completed run. endsAt is a fresh millisecond value on every
   // start, so remembering the last one chimed for is enough to avoid repeats.
