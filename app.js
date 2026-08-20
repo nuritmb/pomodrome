@@ -60,12 +60,28 @@ function washColors() {
   return usable(start) && usable(end) ? [start, end] : null;
 }
 
+// The whole page is the progress bar: everything left of the edge is elapsed
+// time, everything right of it is what's left. A soft feather keeps the
+// boundary from looking like a rendering seam.
 function paintWash(progress) {
   const colors = washColors();
   if (!colors) return;   // stylesheet not in yet; the next paint will catch it
-  const [from, to] = colors;
-  const mix = from.map((c, i) => Math.round(c + (to[i] - c) * progress));
-  document.body.style.backgroundColor = `rgb(${mix.join(" ")})`;
+  const [ahead, behind] = colors;
+  const rgb = (c) => `rgb(${c.join(" ")})`;
+  const p = progress * 100;
+
+  // At the extremes there is no edge to draw, just one flat colour.
+  if (p <= 0 || p >= 100) {
+    document.body.style.backgroundImage = "none";
+    document.body.style.backgroundColor = rgb(p <= 0 ? ahead : behind);
+    return;
+  }
+
+  const feather = 2;
+  document.body.style.backgroundColor = rgb(ahead);
+  document.body.style.backgroundImage = `linear-gradient(to right, ${rgb(behind)} 0%, ` +
+    `${rgb(behind)} ${Math.max(0, p - feather)}%, ` +
+    `${rgb(ahead)} ${Math.min(100, p + feather)}%, ${rgb(ahead)} 100%)`;
 }
 
 /* ------------------------------------------------------------------ chime */
