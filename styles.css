@@ -1,0 +1,138 @@
+:root {
+  --bg: #f6f5f2;
+  --panel: #ffffff;
+  --ink: #1c1b19;
+  --muted: #6f6b63;
+  --line: #e2ded6;
+  --accent: #c8412f;
+  --accent-ink: #ffffff;
+  --ok: #2f7d4f;
+  --shadow: 0 1px 2px rgba(0,0,0,.05), 0 8px 24px rgba(0,0,0,.06);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16151a;
+    --panel: #201f26;
+    --ink: #f0eee9;
+    --muted: #9b968d;
+    --line: #322f39;
+    --accent: #e0563f;
+    --accent-ink: #1a0d0a;
+    --ok: #5fbd85;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 32px rgba(0,0,0,.35);
+  }
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.5 ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
+}
+
+.app {
+  width: min(560px, 100%);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  padding: 20px;
+  display: grid;
+  gap: 20px;
+}
+
+/* header ------------------------------------------------------------- */
+.bar { display: flex; align-items: center; gap: 10px; }
+.brand { font-weight: 650; letter-spacing: -.01em; }
+.status {
+  font-size: 12px; color: var(--muted);
+  border: 1px solid var(--line); border-radius: 999px;
+  padding: 3px 9px; display: inline-flex; align-items: center; gap: 6px;
+}
+.status::before {
+  content: ""; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--muted);
+}
+.status[data-state="live"]::before { background: var(--ok); }
+.status[data-state="offline"]::before,
+.status[data-state="error"]::before { background: var(--accent); }
+.status[data-state="solo"]::before { background: #c9a227; }
+.bar .ghost { margin-left: auto; }
+
+/* stage -------------------------------------------------------------- */
+.stage { text-align: center; padding: 8px 0 4px; }
+.label {
+  margin: 0; font-size: 13px; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--muted);
+}
+.clock {
+  margin: 6px 0 4px;
+  font: 600 clamp(64px, 20vw, 104px)/1 ui-monospace, "SF Mono", Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.03em;
+}
+.clock.done { color: var(--accent); }
+.note { margin: 0; min-height: 1.5em; font-size: 13px; color: var(--muted); }
+
+/* buttons ------------------------------------------------------------ */
+.controls { display: flex; gap: 10px; }
+button {
+  font: inherit; cursor: pointer; border-radius: 12px;
+  border: 1px solid var(--line); background: transparent; color: var(--ink);
+  padding: 11px 16px; transition: transform .06s ease, background .15s ease, opacity .15s ease;
+}
+button:active:not(:disabled) { transform: translateY(1px); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+.primary {
+  flex: 2; background: var(--accent); color: var(--accent-ink);
+  border-color: transparent; font-weight: 600;
+}
+.secondary { flex: 1; }
+.ghost { padding: 5px 10px; font-size: 12px; color: var(--muted); border-radius: 999px; }
+
+/* presets ------------------------------------------------------------ */
+.presets { display: grid; gap: 12px; border-top: 1px solid var(--line); padding-top: 16px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: 999px; font-size: 14px;
+}
+.chip[aria-pressed="true"] {
+  border-color: var(--accent); color: var(--accent); font-weight: 600;
+}
+.chip .mins { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; }
+.chip[aria-pressed="true"] .mins { color: inherit; opacity: .8; }
+.chip .kill {
+  all: unset; cursor: pointer; line-height: 1; padding: 0 2px;
+  color: var(--muted); font-size: 15px;
+}
+.chip .kill:hover { color: var(--accent); }
+
+.add { display: flex; gap: 8px; }
+.add input {
+  font: inherit; color: var(--ink); background: transparent;
+  border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; min-width: 0;
+}
+.add input::placeholder { color: var(--muted); }
+.add input:focus-visible, button:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+#add-name { flex: 1; }
+#add-mins { width: 76px; text-align: center; }
+
+/* footer ------------------------------------------------------------- */
+.foot { font-size: 12px; color: var(--muted); text-align: center; }
+
+/* narrow phones -------------------------------------------------------- */
+@media (max-width: 400px) {
+  body { padding: 12px 8px; }
+  .app { padding: 16px; border-radius: 16px; gap: 16px; }
+  .bar { flex-wrap: wrap; }
+  .controls { flex-wrap: wrap; }
+  .primary, .secondary { flex: 1 1 100%; }
+}

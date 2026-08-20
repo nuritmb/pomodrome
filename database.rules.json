@@ -1,0 +1,35 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "rooms": {
+      "v1": {
+        "$room": {
+          ".read": "$room.length >= 20",
+          ".write": "$room.length >= 20",
+          "timer": {
+            "label":       { ".validate": "newData.isString() && newData.val().length <= 24" },
+            "durationMs":  { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 36000000" },
+            "endsAt":      { ".validate": "newData.isNumber()" },
+            "remainingMs": { ".validate": "newData.isNumber()" },
+            "paused":      { ".validate": "newData.isBoolean()" },
+            "running":     { ".validate": "newData.isBoolean()" },
+            "updatedBy":   { ".validate": "newData.isString() && newData.val().length <= 32" },
+            "updatedAt":   { ".validate": "newData.isNumber()" },
+            "$other":      { ".validate": false }
+          },
+          "presets": {
+            "$preset": {
+              "name":    { ".validate": "newData.isString() && newData.val().length <= 24" },
+              "seconds": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 36000" },
+              "order":   { ".validate": "newData.isNumber()" },
+              "builtin": { ".validate": "newData.isBoolean()" },
+              "$other":  { ".validate": false }
+            }
+          },
+          "$other": { ".validate": false }
+        }
+      }
+    }
+  }
+}
