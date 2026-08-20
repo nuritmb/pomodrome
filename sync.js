@@ -14,8 +14,9 @@ const SDK = "https://www.gstatic.com/firebasejs/12.18.0";
 
 export const DEFAULT_PRESETS = {
   focus:  { name: "Focus",       seconds: 25 * 60, order: 0, builtin: true },
-  short:  { name: "Short break", seconds:  5 * 60, order: 1, builtin: true },
-  long:   { name: "Long break",  seconds: 15 * 60, order: 2, builtin: true },
+  deep:   { name: "Deep Work",   seconds: 50 * 60, order: 1, builtin: true },
+  short:  { name: "Short break", seconds:  5 * 60, order: 2, builtin: true },
+  long:   { name: "Long break",  seconds: 15 * 60, order: 3, builtin: true },
 };
 
 const EMPTY_TIMER = {

@@ -1,5 +1,7 @@
 :root {
   --bg: #f6f5f2;
+  --wash-start: 246 245 242;
+  --wash-end: 233 178 148;
   --panel: #ffffff;
   --ink: #1c1b19;
   --muted: #6f6b63;
@@ -12,6 +14,8 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #16151a;
+    --wash-start: 22 21 26;
+    --wash-end: 74 33 30;
     --panel: #201f26;
     --ink: #f0eee9;
     --muted: #9b968d;
@@ -30,7 +34,8 @@ body {
   display: grid;
   place-items: center;
   padding: 24px 16px;
-  background: var(--bg);
+  background: rgb(var(--wash-start));
+  transition: background-color .5s linear;
   color: var(--ink);
   font: 16px/1.5 ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
 }
@@ -135,4 +140,9 @@ button:disabled { opacity: .45; cursor: not-allowed; }
   .bar { flex-wrap: wrap; }
   .controls { flex-wrap: wrap; }
   .primary, .secondary { flex: 1 1 100%; }
+}
+
+/* The wash is the only motion in the app; honour a request to stop it. */
+@media (prefers-reduced-motion: reduce) {
+  body { transition: none; }
 }

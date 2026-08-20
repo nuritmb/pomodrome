@@ -38,6 +38,38 @@ const el = {
   modeNote: document.getElementById("mode-note"),
 };
 
+/* ------------------------------------------------------------------- wash */
+// The page background creeps from --wash-start to --wash-end as the timer runs,
+// so elapsed time is legible from across the room without reading the digits.
+// The colours live in CSS as "r g b" triples so the theme owns them and this
+// only does the arithmetic.
+
+const clamp01 = (n) => Math.min(1, Math.max(0, n));
+const wash = { start: null, end: null };
+
+function readWash() {
+  const cs = getComputedStyle(document.documentElement);
+  const parse = (name) => cs.getPropertyValue(name).trim().split(/[\s,]+/).map(Number);
+  const start = parse("--wash-start");
+  const end = parse("--wash-end");
+  const usable = (c) => c.length === 3 && c.every(Number.isFinite);
+  wash.start = usable(start) ? start : null;
+  wash.end = usable(end) ? end : null;
+}
+
+readWash();
+// Re-read on a theme flip, otherwise a dark-mode switch keeps the light palette.
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", readWash);
+
+function paintWash(progress) {
+  // The stylesheet can land after this module does, in which case the first
+  // read came back empty. Retry rather than leaving the wash dead for good.
+  if (!wash.start || !wash.end) readWash();
+  if (!wash.start || !wash.end) return;
+  const mix = wash.start.map((c, i) => Math.round(c + (wash.end[i] - c) * progress));
+  document.body.style.backgroundColor = `rgb(${mix.join(" ")})`;
+}
+
 /* ------------------------------------------------------------------ state */
 const store = await createStore(roomId);
 let state = store.getState();
@@ -129,6 +161,11 @@ function render() {
   }
 
   document.title = armed && t.running && !t.paused && !done ? `${fmt(rem)} · ${t.label}` : "Pomodrome";
+
+  // How far through the current run we are, which drives the background wash.
+  // Idle sits at 0, a finished timer holds at 1, and pausing simply freezes it
+  // because remainingMs stops moving.
+  paintWash(!armed ? 0 : done ? 1 : clamp01(1 - rem / t.durationMs));
 
   // Chime once per completed run. endsAt is a fresh millisecond value on every
   // start, so remembering the last one chimed for is enough to avoid repeats.
