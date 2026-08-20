@@ -107,3 +107,9 @@ data.
   remove them.
 - The end-of-timer chime needs the tab to have been clicked at least once, since
   browsers block audio on pages the user has not interacted with.
+- The chime is handed to the Web Audio clock when a run starts, rather than being
+  fired when the countdown reaches zero. A hidden tab has its timers throttled to
+  roughly once a minute, so a render-driven chime rings late; the audio clock is
+  not throttled and keeps real time in the background. The displayed digits still
+  freeze while the tab is hidden and catch up when you look at it — only the
+  chime is precise.

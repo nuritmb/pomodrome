@@ -70,10 +70,72 @@ function paintWash(progress) {
   document.body.style.backgroundColor = `rgb(${mix.join(" ")})`;
 }
 
+/* ------------------------------------------------------------------ chime */
+// The chime is scheduled the moment a run starts, not when render() notices the
+// clock hit zero. A hidden tab has its timers throttled to roughly once a
+// minute, so anything driven by the render loop rings late — but the audio
+// clock runs on its own thread and is not throttled, so a tone handed to it
+// with a start time will sound on the second regardless of what the tab is
+// doing. Pausing or resetting cancels the pending tone; the next start
+// schedules a fresh one.
+
+let audio;
+let scheduled = [];      // oscillators handed to the audio clock, not yet played
+let scheduledFor = null; // the endsAt they were scheduled against
+
+// Browsers block audio until the page has been interacted with, so unlock the
+// context on the first click this tab sees.
+addEventListener("pointerdown", () => {
+  if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
+  if (audio.state === "suspended") audio.resume();
+}, { once: true });
+
+function cancelChime() {
+  for (const osc of scheduled) {
+    try { osc.stop(); } catch { /* already played out */ }
+  }
+  scheduled = [];
+  scheduledFor = null;
+}
+
+function scheduleChime(msFromNow, endsAt) {
+  cancelChime();
+  // No audio context until the tab has been clicked once; render() keeps
+  // calling, so this picks itself up as soon as the user interacts.
+  if (!audio || audio.state !== "running") return;
+
+  const at0 = audio.currentTime + Math.max(0, msFromNow) / 1000;
+  [0, 0.24, 0.48].forEach((offset, i) => {
+    const osc = audio.createOscillator();
+    const gain = audio.createGain();
+    const at = at0 + offset;
+    osc.frequency.value = 660 + i * 110;
+    gain.gain.setValueAtTime(0.0001, at);
+    gain.gain.exponentialRampToValueAtTime(0.25, at + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.2);
+    osc.connect(gain).connect(audio.destination);
+    osc.start(at);
+    osc.stop(at + 0.22);
+    scheduled.push(osc);
+  });
+  scheduledFor = endsAt;
+}
+
+// Called every render: keeps the pending tone in step with the shared state,
+// including a run your friend started, since state updates arrive over the
+// network rather than on a throttled timer.
+function syncChime(timer, now, done) {
+  if (done) return;  // already ringing or rung — leave it alone to play out
+  if (timer.running && !timer.paused) {
+    if (scheduledFor !== timer.endsAt) scheduleChime(timer.endsAt - now, timer.endsAt);
+  } else if (scheduledFor !== null) {
+    cancelChime();
+  }
+}
+
 /* ------------------------------------------------------------------ state */
 const store = await createStore(roomId);
 let state = store.getState();
-let chimedFor = null;
 
 store.onState((next) => { state = next; renderPresets(); render(); });
 store.onStatus(setStatus);
@@ -167,9 +229,7 @@ function render() {
   // because remainingMs stops moving.
   paintWash(!armed ? 0 : done ? 1 : clamp01(1 - rem / t.durationMs));
 
-  // Chime once per completed run. endsAt is a fresh millisecond value on every
-  // start, so remembering the last one chimed for is enough to avoid repeats.
-  if (done && chimedFor !== t.endsAt) { chimedFor = t.endsAt; chime(); }
+  syncChime(t, now, done);
 }
 
 function renderPresets() {
@@ -277,31 +337,6 @@ document.addEventListener("keydown", (e) => {
   if (e.code === "Space") { e.preventDefault(); toggle(); }
   if (e.key.toLowerCase() === "r") reset();
 });
-
-/* ------------------------------------------------------------------ chime */
-let audio;
-// Browsers block audio until the page has been interacted with, so unlock the
-// context on the first click this tab sees.
-addEventListener("pointerdown", () => {
-  if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
-  if (audio.state === "suspended") audio.resume();
-}, { once: true });
-
-function chime() {
-  if (!audio) return;
-  [0, 0.24, 0.48].forEach((offset, i) => {
-    const osc = audio.createOscillator();
-    const gain = audio.createGain();
-    const at = audio.currentTime + offset;
-    osc.frequency.value = 660 + i * 110;
-    gain.gain.setValueAtTime(0.0001, at);
-    gain.gain.exponentialRampToValueAtTime(0.25, at + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.2);
-    osc.connect(gain).connect(audio.destination);
-    osc.start(at);
-    osc.stop(at + 0.22);
-  });
-}
 
 /* ------------------------------------------------------------------- loop */
 renderPresets();
