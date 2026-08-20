@@ -1,7 +1,7 @@
 :root {
   --bg: #f6f5f2;
   --wash-start: 246 245 242;
-  --wash-end: 233 178 148;
+  --wash-end: 226 146 110;
   --panel: #ffffff;
   --ink: #1c1b19;
   --muted: #6f6b63;
@@ -15,7 +15,7 @@
   :root {
     --bg: #16151a;
     --wash-start: 22 21 26;
-    --wash-end: 74 33 30;
+    --wash-end: 96 38 32;
     --panel: #201f26;
     --ink: #f0eee9;
     --muted: #9b968d;
@@ -83,6 +83,27 @@ body {
 }
 .clock.done { color: var(--accent); }
 .note { margin: 0; min-height: 1.5em; font-size: 13px; color: var(--muted); }
+
+/* progress ------------------------------------------------------------- */
+/* Empties left to right as the run proceeds. The colour wash is ambience;
+   this is the part you can actually read at a glance. */
+.track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+.track[data-idle="true"] { visibility: hidden; }
+.fill {
+  height: 100%;
+  width: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width .25s linear;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fill { transition: none; }
+}
 
 /* buttons ------------------------------------------------------------ */
 .controls { display: flex; gap: 10px; }

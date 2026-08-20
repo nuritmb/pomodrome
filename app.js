@@ -32,6 +32,8 @@ const el = {
   toggle: document.getElementById("toggle"),
   reset: document.getElementById("reset"),
   chips: document.getElementById("chips"),
+  track: document.getElementById("track"),
+  fill: document.getElementById("fill"),
   add: document.getElementById("add"),
   addName: document.getElementById("add-name"),
   addMins: document.getElementById("add-mins"),
@@ -45,28 +47,24 @@ const el = {
 // only does the arithmetic.
 
 const clamp01 = (n) => Math.min(1, Math.max(0, n));
-const wash = { start: null, end: null };
 
-function readWash() {
+// Read on every paint rather than cached. Caching meant a theme switch left the
+// old palette in place — and getComputedStyle four times a second costs nothing
+// next to being wrong.
+function washColors() {
   const cs = getComputedStyle(document.documentElement);
   const parse = (name) => cs.getPropertyValue(name).trim().split(/[\s,]+/).map(Number);
+  const usable = (c) => c.length === 3 && c.every(Number.isFinite);
   const start = parse("--wash-start");
   const end = parse("--wash-end");
-  const usable = (c) => c.length === 3 && c.every(Number.isFinite);
-  wash.start = usable(start) ? start : null;
-  wash.end = usable(end) ? end : null;
+  return usable(start) && usable(end) ? [start, end] : null;
 }
 
-readWash();
-// Re-read on a theme flip, otherwise a dark-mode switch keeps the light palette.
-matchMedia("(prefers-color-scheme: dark)").addEventListener("change", readWash);
-
 function paintWash(progress) {
-  // The stylesheet can land after this module does, in which case the first
-  // read came back empty. Retry rather than leaving the wash dead for good.
-  if (!wash.start || !wash.end) readWash();
-  if (!wash.start || !wash.end) return;
-  const mix = wash.start.map((c, i) => Math.round(c + (wash.end[i] - c) * progress));
+  const colors = washColors();
+  if (!colors) return;   // stylesheet not in yet; the next paint will catch it
+  const [from, to] = colors;
+  const mix = from.map((c, i) => Math.round(c + (to[i] - c) * progress));
   document.body.style.backgroundColor = `rgb(${mix.join(" ")})`;
 }
 
@@ -227,7 +225,14 @@ function render() {
   // How far through the current run we are, which drives the background wash.
   // Idle sits at 0, a finished timer holds at 1, and pausing simply freezes it
   // because remainingMs stops moving.
-  paintWash(!armed ? 0 : done ? 1 : clamp01(1 - rem / t.durationMs));
+  const progress = !armed ? 0 : done ? 1 : clamp01(1 - rem / t.durationMs);
+  paintWash(progress);
+
+  // The bar drains as the run proceeds: full at the start, empty at zero.
+  const left = Math.round((1 - progress) * 100);
+  el.track.dataset.idle = String(!armed);
+  el.fill.style.width = `${left}%`;
+  el.track.setAttribute("aria-valuenow", String(left));
 
   syncChime(t, now, done);
 }
