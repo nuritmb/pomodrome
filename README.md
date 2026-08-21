@@ -116,6 +116,25 @@ The values in `config.js` are public identifiers, not secrets — it is expected
 that they sit in a public repo. The rules above are what actually protect the
 data.
 
+### About the "Google API Key detected" alert
+
+GitHub secret scanning flags the `apiKey` because it matches the shape of a
+Google API key. It is a false positive worth understanding rather than muting:
+a Firebase *browser* key is an identifier the client must have, and it is
+already served publicly as part of this page. Removing it from the repo would
+break the app and hide nothing.
+
+Nor is it the thing guarding your data — `databaseURL` is equally public, and a
+client can be pointed at it with no key at all. The database rules and the
+24-character room ids are the entire security boundary, which is why they are
+worth reading before sharing a link.
+
+Rotating the key is pointless (its replacement would be just as public). What is
+worth doing is restricting it: **Google Cloud Console → APIs & Services →
+Credentials → Browser key → Application restrictions → Websites**, limited to
+your Pages domain. That prevents anyone using it against other Google APIs
+enabled on the project. Then close the alert as a false positive.
+
 ## Notes
 
 - Space toggles start/pause, `R` resets.
