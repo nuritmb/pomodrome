@@ -193,21 +193,38 @@ function renderPeople() {
   el.people.replaceChildren(...nodes);
 }
 
-// Only completed work runs count. A run you abandon halfway does not, which
-// keeps the number honest and — more usefully — makes it deterministic: both
-// browsers derive the same key and the same value from shared state, so if you
-// both record the same run you write identical bytes instead of double-counting.
-let loggedFor = null;
+// Time is credited per *segment*: one uninterrupted stretch of running. The
+// segment's start is already in the shared state — timer.updatedAt is rewritten
+// whenever the running state changes — so no extra field is needed, and both
+// browsers agree on when the stretch began.
+//
+// Who writes matters, because two browsers watch the same state:
+//   - natural completion: both credit, but elapsed is endsAt - updatedAt, which
+//     is derived purely from shared state, so they write identical bytes.
+//   - pause / reset / switching timer: only the browser that acted credits,
+//     from its own clock, before it overwrites the timer.
+// Pausing and resuming opens a new segment under a new key, so the pieces sum
+// rather than overwrite each other.
 
-function recordSession(timer, done) {
-  if (!done || loggedFor === timer.endsAt) return;
-  loggedFor = timer.endsAt;
-  if (timer.work === false) return;
-  store.logSession(timer.endsAt, {
-    seconds: Math.round(timer.durationMs / 1000),
-    label: timer.label || "Focus",
-  });
+const MIN_SEGMENT_SECONDS = 5;   // ignore stray clicks
+
+function creditSegment(timer, endedAt) {
+  if (!timer.running || timer.paused || timer.work === false) return;
+  if (!timer.updatedAt) return;
+  const end = Math.min(endedAt, timer.endsAt ?? endedAt);
+  const seconds = Math.round((end - timer.updatedAt) / 1000);
+  if (seconds < MIN_SEGMENT_SECONDS) return;
+  store.logSession(timer.updatedAt, { seconds, label: timer.label || "Focus" });
   pruneSessions();
+}
+
+// Called every render; the guard keeps it to one write per finished segment.
+let creditedFor = null;
+
+function creditIfFinished(timer, done) {
+  if (!done || creditedFor === timer.updatedAt) return;
+  creditedFor = timer.updatedAt;
+  creditSegment(timer, timer.endsAt);   // not "now": keep it identical on both
 }
 
 // The whole room downloads on every page load, so don't let the ledger grow
@@ -229,6 +246,9 @@ function workedTodayMs() {
 }
 
 function humanDuration(ms) {
+  // Partial credit means the total is often under a minute early in the day,
+  // and "0m of focus today" reads like the counter is broken.
+  if (ms < 60000) return `${Math.round(ms / 1000)}s`;
   const mins = Math.round(ms / 60000);
   const h = Math.floor(mins / 60);
   const m = mins % 60;
@@ -351,7 +371,7 @@ function render() {
   el.track.setAttribute("aria-valuenow", String(left));
 
   syncChime(t, now, done);
-  recordSession(t, done);
+  creditIfFinished(t, done);
 }
 
 function renderPresets() {
@@ -407,6 +427,7 @@ el.gateForm.addEventListener("submit", (e) => {
 /* ---------------------------------------------------------------- actions */
 // Selecting is shared too, so you are never looking at different timers.
 function selectPreset(p) {
+  creditSegment(state.timer, store.now());
   const ms = p.seconds * 1000;
   store.setTimer({
     label: p.name, durationMs: ms, endsAt: null, remainingMs: ms,
@@ -425,12 +446,14 @@ function toggle() {
   } else if (t.paused) {
     store.setTimer({ ...t, endsAt: now + (t.remainingMs ?? t.durationMs), remainingMs: null, paused: false, updatedBy: me });
   } else {
+    creditSegment(t, now);
     store.setTimer({ ...t, remainingMs: Math.max(0, t.endsAt - now), endsAt: null, paused: true, updatedBy: me });
   }
 }
 
 function reset() {
   const t = state.timer;
+  creditSegment(t, store.now());
   store.setTimer({ ...t, endsAt: null, remainingMs: t.durationMs, running: false, paused: false, updatedBy: me });
 }
 

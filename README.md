@@ -140,6 +140,17 @@ enabled on the project. Then close the alert as a false positive.
 - Space toggles start/pause, `R` resets.
 - Timers you add are shared: your friend sees them appear, and either of you can
   remove them.
+- The name you enter lives in `sessionStorage` and your entry in the room's
+  presence list is removed by the server on disconnect, so closing the tab (or
+  losing wifi, or shutting the lid) takes you off your friend's list.
+- "Focus today" counts time per *segment* — one uninterrupted stretch of
+  running — so pausing or abandoning a timer still credits the part you did.
+  Breaks are excluded via a `work` flag on each preset. Each entry is keyed by
+  the segment's start (`timer.updatedAt`, already in the shared state), which is
+  what keeps two browsers from counting the same stretch twice: on natural
+  completion both derive an identical key and value, and for pause/reset/switch
+  only the browser that acted writes. Segments under 5 seconds are ignored, and
+  entries older than two days are pruned.
 - The end-of-timer chime needs the tab to have been clicked at least once, since
   browsers block audio on pages the user has not interacted with.
 - The chime is handed to the Web Audio clock when a run starts, rather than being
